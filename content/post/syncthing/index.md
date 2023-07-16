@@ -1,7 +1,10 @@
 ---
 title: 使用 Syncthing 同步文件
 date: 2023-07-16 21:06:38
+categories:
+    - 
 tags:
+    - 瞎折腾 
 ---
 
 一个可以用在不同设备之间，同步文件的工具。这篇文章主要讲讲在各平台如何安装。
@@ -19,7 +22,7 @@ tags:
 
 先去官网下个包 [https://syncthing.net/downloads/](https://syncthing.net/downloads/)
 
-![img1.png](img1.png)
+![img1.png](index_image_1.png)
 
 然后 win + r 输入 shell:startup ，在其中新建一个 bat 文件（可以先新建个 txt 文件，输入下面内容后，再将 txt 后缀改为 bat）
 
