@@ -85,7 +85,6 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "syncthing/index.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -102,7 +101,6 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "syncthing/index.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               }
@@ -124,9 +122,7 @@
             "type": "leaf",
             "state": {
               "type": "outline",
-              "state": {
-                "file": "syncthing/index.md"
-              }
+              "state": {}
             }
           }
         ],
@@ -147,11 +143,12 @@
       "command-palette:打开命令面板": false
     }
   },
-  "active": "bd24c1c55d708bb4",
+  "active": "848061efdb4037d5",
   "lastOpenFiles": [
+    "syncthing/index.md",
+    "未命名.md",
     "templates/post.md",
     "templates",
-    "syncthing/index.md",
     "syncthing/index_image_1.png",
     "syncthing/未命名.md",
     "use-fontawesome-in-uniapp/index.md",
