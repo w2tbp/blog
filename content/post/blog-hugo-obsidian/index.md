@@ -2,9 +2,9 @@
 title: 使用hugo+obsidian来写博客
 date: 2023-07-19 22:07:13
 categories:
-	- 
+    - 
 tags:
-	- 瞎折腾
+    - 瞎折腾
 ---
 
 ## hugo
@@ -39,7 +39,9 @@ hugo 用来生成页面，很好。
 ### 文章头
 就是这篇文章的配置，这玩意实在不想手敲。
 包括那个时间戳，想想用手敲就觉得很痛苦。
-![](Pasted%20image%2020230720205029.png)
+
+![index_image_2.png](index_image_2.png)
+
 当然这个东西，obsidian 就有自己的解决方案，它自有的模版系统。但是用这个有一个非常严重的问题。obsidian 自带的模版，是需要选定一个文件夹的，这个文件夹里面本质上就是一堆 .md 文件，在 hugo 里面会被渲染成文章。
 我也没找到如何配置 hugo 不去渲染某些文章，所以决定自己写个 obsidian 插件
 [w2tbp/obsidian-post-init-plugin (github.com)](https://github.com/w2tbp/obsidian-post-init-plugin)
