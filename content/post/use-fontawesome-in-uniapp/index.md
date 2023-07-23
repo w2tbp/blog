@@ -1,5 +1,5 @@
 ---
-title: uniapp 中在 page.json 使用 fontawesome
+title: 在 uniapp 中使用 fontawesome
 date: 2022-06-30 15:39:16
 tags: 
     - uniapp 
