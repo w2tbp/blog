@@ -16,3 +16,5 @@ hasCJKLanguage = false
 disqusShortname = "hugo-theme-stack"
 
 buildFuture = true
+
+# ignoreFiles = [ "\\.excalidraw$" ]

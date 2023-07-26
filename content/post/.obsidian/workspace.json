@@ -18,8 +18,17 @@
                 "source": false
               }
             }
+          },
+          {
+            "id": "a72ee726f543dce2",
+            "type": "leaf",
+            "state": {
+              "type": "empty",
+              "state": {}
+            }
           }
-        ]
+        ],
+        "currentTab": 1
       }
     ],
     "direction": "vertical"
@@ -85,7 +94,6 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "blog-hugo-obsidian/index.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -102,7 +110,6 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "blog-hugo-obsidian/index.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               }
@@ -124,9 +131,7 @@
             "type": "leaf",
             "state": {
               "type": "outline",
-              "state": {
-                "file": "blog-hugo-obsidian/index.md"
-              }
+              "state": {}
             }
           }
         ],
@@ -148,10 +153,16 @@
       "obsidian-excalidraw-plugin:新建 Excalidraw 绘图": false
     }
   },
-  "active": "bd24c1c55d708bb4",
+  "active": "a72ee726f543dce2",
   "lastOpenFiles": [
-    "blog-hugo-obsidian/test.png",
+    "blog-hugo-obsidian/Drawing 2023-07-26 21.02.53.excalidraw.md",
     "blog-hugo-obsidian/index.md",
+    "Excalidraw",
+    "blog-hugo-obsidian/Pasted image 20230726205757.png",
+    "blog-hugo-obsidian/Pasted image 20230726205529.png",
+    "blog-hugo-obsidian/hugo_server.png",
+    "blog-hugo-obsidian/Pasted image 20230726205233.png",
+    "blog-hugo-obsidian/test.png",
     "syncthing/index.md",
     "syncthing/index_image_1.png",
     "use-fontawesome-in-uniapp/index.md",
@@ -165,10 +176,6 @@
     "syncthing/未命名.md",
     "hello-world/index.md",
     "syncthing/index_image_3.png",
-    "syncthing/index_image_2.png",
-    "syncthing/img3.png",
-    "syncthing/img2.png",
-    "syncthing/Pasted image 20230716214427.png",
     "Pasted.md",
     "syncthing"
   ]
