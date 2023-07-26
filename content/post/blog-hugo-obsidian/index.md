@@ -68,9 +68,9 @@ obsidian 很好用，拿来写 md ，hugo 用来生成页面，强强联合，�
 ![index_image_2.png](index_image_2.png)
 
 当然这个东西，obsidian 就有自己的解决方案，它自有的模版系统。  
-但是用这个有一个问题。obsidian 自带的模版，是需要选定一个文件夹的，这个文件夹里面本质上就是一堆 .md 文件，在 hugo 里面会被渲染成文章。~~我也没找到如何配置 hugo 不去渲染某些文章。~~
+但是用这个有一个问题。obsidian 自带的模版，是需要选定一个文件夹的，这个文件夹里面本质上就是一堆 .md 文件，在 hugo 里面会被渲染成文章。~~我也没找到如何配置 hugo 不去渲染某些文章。~~  
 所以决定自己写个 obsidian 插件 [w2tbp/obsidian-post-init-plugin (github.com)](https://github.com/w2tbp/obsidian-post-init-plugin)  
-自定义一个命令，输入自己设定的模版。这样免去了自己手打配置的痛苦。、
+自定义一个命令，输入自己设定的模版。这样免去了自己手打配置的痛苦。
 
 在我发现 hugo 可以忽略渲染某些文件后，同样的功能就不必这么复杂了，用 obsidian 模版就可以了，不用搞什么插件。  
 可以直接在 hugo 的配置文件中加入模版文件的名字，或者所有模版文件加个相同的后缀之类的。例如 xxx.template.md，然后配置忽略含有 template 的文件。
