@@ -144,15 +144,17 @@
       "canvas:新建白板": false,
       "daily-notes:打开/创建今天的日记": false,
       "templates:插入模板": false,
-      "command-palette:打开命令面板": false
+      "command-palette:打开命令面板": false,
+      "obsidian-excalidraw-plugin:新建 Excalidraw 绘图": false
     }
   },
   "active": "bd24c1c55d708bb4",
   "lastOpenFiles": [
+    "blog-hugo-obsidian/test.png",
+    "blog-hugo-obsidian/index.md",
     "syncthing/index.md",
     "syncthing/index_image_1.png",
     "use-fontawesome-in-uniapp/index.md",
-    "blog-hugo-obsidian/index.md",
     "blog-hugo-obsidian/index_image_2.png",
     "blog-hugo-obsidian/index_image_1.png",
     "tmp1689856970089_index_image_1.png.md",
@@ -168,7 +170,6 @@
     "syncthing/img2.png",
     "syncthing/Pasted image 20230716214427.png",
     "Pasted.md",
-    "Pasted image 20230716214348.png",
     "syncthing"
   ]
 }
