@@ -30,9 +30,21 @@
                 "source": false
               }
             }
+          },
+          {
+            "id": "95b4580e29c0d777",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "java-stream/index.md",
+                "mode": "source",
+                "source": false
+              }
+            }
           }
         ],
-        "currentTab": 1
+        "currentTab": 2
       }
     ],
     "direction": "vertical"
@@ -82,7 +94,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300
+    "width": 232.5
   },
   "right": {
     "id": "d81e23d585f06a11",
@@ -98,7 +110,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "blog-hugo-obsidian/index.md",
+                "file": "java-stream/index.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -115,7 +127,7 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "blog-hugo-obsidian/index.md",
+                "file": "java-stream/index.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               }
@@ -138,7 +150,7 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "blog-hugo-obsidian/index.md"
+                "file": "java-stream/index.md"
               }
             }
           }
@@ -161,10 +173,12 @@
       "obsidian-excalidraw-plugin:新建 Excalidraw 绘图": false
     }
   },
-  "active": "a72ee726f543dce2",
+  "active": "95b4580e29c0d777",
   "lastOpenFiles": [
-    "blog-hugo-obsidian/Drawing 2023-07-26 21.02.53.excalidraw.md",
     "blog-hugo-obsidian/index.md",
+    "java-stream/index.md",
+    "java-stream",
+    "blog-hugo-obsidian/Drawing 2023-07-26 21.02.53.excalidraw.md",
     "Excalidraw",
     "blog-hugo-obsidian/Pasted image 20230726205757.png",
     "blog-hugo-obsidian/Pasted image 20230726205529.png",
