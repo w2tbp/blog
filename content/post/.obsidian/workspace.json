@@ -4,47 +4,32 @@
     "type": "split",
     "children": [
       {
-        "id": "1e7d76272c9e4ef6",
+        "id": "e422c0772af6768c",
         "type": "tabs",
         "children": [
           {
-            "id": "bd24c1c55d708bb4",
+            "id": "9a3a05abb807f9cc",
             "type": "leaf",
             "state": {
               "type": "markdown",
               "state": {
-                "file": "blog-hugo-obsidian/index.md",
+                "file": "pluggable-annotation/index.md",
                 "mode": "source",
                 "source": false
               }
             }
           },
           {
-            "id": "a72ee726f543dce2",
+            "id": "a2209d01db3afdea",
             "type": "leaf",
             "state": {
-              "type": "markdown",
+              "type": "excalidraw",
               "state": {
-                "file": "blog-hugo-obsidian/index.md",
-                "mode": "source",
-                "source": false
-              }
-            }
-          },
-          {
-            "id": "95b4580e29c0d777",
-            "type": "leaf",
-            "state": {
-              "type": "markdown",
-              "state": {
-                "file": "java-stream/index.md",
-                "mode": "source",
-                "source": false
+                "file": "pluggable-annotation/pluggable-annotation.excalidraw.md"
               }
             }
           }
-        ],
-        "currentTab": 2
+        ]
       }
     ],
     "direction": "vertical"
@@ -110,7 +95,7 @@
             "state": {
               "type": "backlink",
               "state": {
-                "file": "java-stream/index.md",
+                "file": "pluggable-annotation/index.md",
                 "collapseAll": false,
                 "extraContext": false,
                 "sortOrder": "alphabetical",
@@ -127,7 +112,7 @@
             "state": {
               "type": "outgoing-link",
               "state": {
-                "file": "java-stream/index.md",
+                "file": "pluggable-annotation/index.md",
                 "linksCollapsed": false,
                 "unlinkedCollapsed": true
               }
@@ -150,7 +135,7 @@
             "state": {
               "type": "outline",
               "state": {
-                "file": "java-stream/index.md"
+                "file": "pluggable-annotation/index.md"
               }
             }
           }
@@ -164,40 +149,48 @@
   },
   "left-ribbon": {
     "hiddenItems": {
+      "obsidian-excalidraw-plugin:新建 Excalidraw 绘图": false,
       "switcher:打开快速切换": false,
       "graph:查看关系图谱": false,
       "canvas:新建白板": false,
       "daily-notes:打开/创建今天的日记": false,
       "templates:插入模板": false,
-      "command-palette:打开命令面板": false,
-      "obsidian-excalidraw-plugin:新建 Excalidraw 绘图": false
+      "command-palette:打开命令面板": false
     }
   },
-  "active": "95b4580e29c0d777",
+  "active": "9a3a05abb807f9cc",
   "lastOpenFiles": [
+    "pluggable-annotation/pluggable-annotation-4.png",
+    "pluggable-annotation/pluggable-annotation-4.png",
+    "pluggable-annotation/index.md",
+    "pluggable-annotation/pluggable-annotation-idea-plugin-1.0-SNAPSHOT.zip",
+    "pluggable-annotation/pluggable-annotation-3.png",
+    "pluggable-annotation/pluggable-annotation-2.png",
+    "pluggable-annotation/pluggable-annotation-1.png",
+    "pluggable-annotation/pluggable-annotation.png",
+    "syncthing/index.md",
+    "pluggable-annotation/pluggable-annotation.excalidraw.md",
+    "syncthing/index_image_1.png",
     "blog-hugo-obsidian/index.md",
     "java-stream/index.md",
+    "pluggable-annotation/未命名.md",
+    "pluggable-annotation",
+    "java-reflect/index.md",
+    "hello-world/index.md",
+    "hello-world/cover.jpg",
+    "java-reflect",
     "java-stream",
     "blog-hugo-obsidian/Drawing 2023-07-26 21.02.53.excalidraw.md",
     "Excalidraw",
     "blog-hugo-obsidian/Pasted image 20230726205757.png",
     "blog-hugo-obsidian/Pasted image 20230726205529.png",
     "blog-hugo-obsidian/hugo_server.png",
-    "blog-hugo-obsidian/Pasted image 20230726205233.png",
-    "blog-hugo-obsidian/test.png",
-    "syncthing/index.md",
-    "syncthing/index_image_1.png",
     "use-fontawesome-in-uniapp/index.md",
-    "blog-hugo-obsidian/index_image_2.png",
-    "blog-hugo-obsidian/index_image_1.png",
     "tmp1689856970089_index_image_1.png.md",
-    "blog-hugo-obsidian/index_image_2.png",
     "blog-hugo-obsidian",
     "templates/post.md",
     "templates",
     "syncthing/未命名.md",
-    "hello-world/index.md",
-    "syncthing/index_image_3.png",
     "Pasted.md",
     "syncthing"
   ]
