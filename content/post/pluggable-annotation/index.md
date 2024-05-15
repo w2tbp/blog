@@ -251,6 +251,8 @@ com.w2tbp.samples.annotation.MyLogProcessor
 
 可以直接下载项目目录下的 `pluggable-annotation-idea-plugin-1.0-SNAPSHOT.zip` ，然后在 idea 插件选项中，选择从磁盘中安装，安装此插件。
 
+另需注意，IDEA 会有版本兼容问题，我这里使用的 IDEA 版本为 2024.1
+
 ## 其他
 ### 报错 java: java.lang.IllegalArgumentException
 
