@@ -1,0 +1,1046 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Java on w2tbp</title><link>https://w2tbp.github.io/blog/tags/java/</link><description>Recent content in Java on w2tbp</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Mon, 29 Apr 2024 15:27:38 +0000</lastBuildDate><atom:link href="https://w2tbp.github.io/blog/tags/java/index.xml" rel="self" type="application/rss+xml"/><item><title>java 插入式注解</title><link>https://w2tbp.github.io/blog/p/java-%E6%8F%92%E5%85%A5%E5%BC%8F%E6%B3%A8%E8%A7%A3/</link><pubDate>Mon, 29 Apr 2024 15:27:38 +0000</pubDate><guid>https://w2tbp.github.io/blog/p/java-%E6%8F%92%E5%85%A5%E5%BC%8F%E6%B3%A8%E8%A7%A3/</guid><description>&lt;p>本文将通过几个方面来介绍插入式注解。包括如何搭建项目环境，如何编写注解处理器，以及编写 idea 插件使注解生成的代码不会报错。&lt;/p>
+&lt;p>示例代码地址&lt;/p>
+&lt;ul>
+&lt;li>插入式注解代码地址：&lt;a class="link" href="https://github.com/w2tbp/samples/tree/main/pluggable-annotation" target="_blank" rel="noopener"
+>samples/pluggable-annotation&lt;/a>&lt;/li>
+&lt;li>测试代码地址：&lt;a class="link" href="https://github.com/w2tbp/samples/tree/main/pluggable-annotation-test" target="_blank" rel="noopener"
+>samples/pluggable-annotation-test&lt;/a>&lt;/li>
+&lt;li>插件的代码地址：&lt;a class="link" href="https://github.com/w2tbp/samples/tree/main/pluggable-annotation-idea-plugin" target="_blank" rel="noopener"
+>samples/pluggable-annotation-idea-plugin&lt;/a>&lt;/li>
+&lt;/ul>
+&lt;h2 id="什么是插入式注解">什么是插入式注解
+&lt;/h2>&lt;p>JSR-269 插件化注解处理(Pluggable Annotation Processing API)&lt;/p>
+&lt;p>可以在编译期期间对代码进行处理，像经常用的 lombok 也是基于这个原理，通过注解生成 getter/setter 等方法。&lt;/p>
+&lt;p>javac 会通过 SPI 机制，找到要调用的注解处理器，处理完源代码后再去生成字节码。&lt;/p>
+&lt;h2 id="搭建项目环境">搭建项目环境
+&lt;/h2>&lt;p>在编写注解处理器时，需要通过修改语法树来达成修改代码的效果，java 提供了对应的方法，但限制了访问，得自己引入。&lt;/p>
+&lt;p>在 jdk8 中，可以通过引入 &lt;code>java安装路径/lib/tools.jar&lt;/code> 来实现，而在 jdk8 以上的版本，已经不提供这个 tools.jar 了。那么在 jdk8 以上如何实现效果？就得自定义编译选项了，可以修改 maven 中编译插件的配置来达成目的。&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-xml" data-lang="xml">&lt;span class="line">&lt;span class="cl">&lt;span class="nt">&amp;lt;compilerArgs&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;arg&amp;gt;&lt;/span>--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED&lt;span class="nt">&amp;lt;/arg&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;arg&amp;gt;&lt;/span>--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED&lt;span class="nt">&amp;lt;/arg&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;arg&amp;gt;&lt;/span>--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED&lt;span class="nt">&amp;lt;/arg&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;arg&amp;gt;&lt;/span>--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED&lt;span class="nt">&amp;lt;/arg&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;arg&amp;gt;&lt;/span>--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED&lt;span class="nt">&amp;lt;/arg&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;arg&amp;gt;&lt;/span>--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED&lt;span class="nt">&amp;lt;/arg&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nt">&amp;lt;/compilerArgs&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>&lt;code>--add-exports&lt;/code> 和 &lt;code>--add-opens&lt;/code> （lombok 用的是这个）有细微差别，我测试了下，使用 &lt;code>--add-opens&lt;/code> 会编译报错，因为我不想纠结这个事情，于是便不求甚解了。&lt;/p>
+&lt;p>除此之外，还得配置一个参数：&lt;code>-proc:none&lt;/code> 。这个是控制 javac 编译时的行为，&lt;code>-proc:none&lt;/code> 指不使用注释处理器，只编译源文件。&lt;/p>
+&lt;p>maven 插件完整代码如下：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-xml" data-lang="xml">&lt;span class="line">&lt;span class="cl">&lt;span class="nt">&amp;lt;plugin&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;groupId&amp;gt;&lt;/span>org.apache.maven.plugins&lt;span class="nt">&amp;lt;/groupId&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;artifactId&amp;gt;&lt;/span>maven-compiler-plugin&lt;span class="nt">&amp;lt;/artifactId&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;version&amp;gt;&lt;/span>3.8.1&lt;span class="nt">&amp;lt;/version&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;configuration&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;source&amp;gt;&lt;/span>${maven.compiler.source}&lt;span class="nt">&amp;lt;/source&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;target&amp;gt;&lt;/span>${maven.compiler.target}&lt;span class="nt">&amp;lt;/target&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;compilerArgs&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;arg&amp;gt;&lt;/span>-proc:none&lt;span class="nt">&amp;lt;/arg&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;arg&amp;gt;&lt;/span>--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED&lt;span class="nt">&amp;lt;/arg&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;arg&amp;gt;&lt;/span>--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED&lt;span class="nt">&amp;lt;/arg&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;arg&amp;gt;&lt;/span>--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED&lt;span class="nt">&amp;lt;/arg&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;arg&amp;gt;&lt;/span>--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED&lt;span class="nt">&amp;lt;/arg&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;arg&amp;gt;&lt;/span>--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED&lt;span class="nt">&amp;lt;/arg&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;arg&amp;gt;&lt;/span>--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED&lt;span class="nt">&amp;lt;/arg&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;/compilerArgs&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;/configuration&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nt">&amp;lt;/plugin&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>这里在顺手放一段 lombok 的配置：&lt;a class="link" href="https://github.com/projectlombok/lombok/blob/master/docker/maven/files/jdk-21/classpath/pom.xml" target="_blank" rel="noopener"
+>lombok/docker/maven/files/jdk-21/classpath/pom.xml&lt;/a>&lt;/p>
+&lt;p>而至于 jdk8 ，事情就简单多了，直接把 tool.jar 引入就完事了。完整代码如下：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-xml" data-lang="xml">&lt;span class="line">&lt;span class="cl">...
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nt">&amp;lt;dependency&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;groupId&amp;gt;&lt;/span>com.sun&lt;span class="nt">&amp;lt;/groupId&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;artifactId&amp;gt;&lt;/span>tools&lt;span class="nt">&amp;lt;/artifactId&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;version&amp;gt;&lt;/span>1.8&lt;span class="nt">&amp;lt;/version&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;scope&amp;gt;&lt;/span>system&lt;span class="nt">&amp;lt;/scope&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;systemPath&amp;gt;&lt;/span>${java.home}/../lib/tools.jar&lt;span class="nt">&amp;lt;/systemPath&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nt">&amp;lt;/dependency&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">...
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nt">&amp;lt;plugin&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;groupId&amp;gt;&lt;/span>org.apache.maven.plugins&lt;span class="nt">&amp;lt;/groupId&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;artifactId&amp;gt;&lt;/span>maven-compiler-plugin&lt;span class="nt">&amp;lt;/artifactId&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;version&amp;gt;&lt;/span>3.8.1&lt;span class="nt">&amp;lt;/version&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;configuration&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;source&amp;gt;&lt;/span>${maven.compiler.source}&lt;span class="nt">&amp;lt;/source&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;target&amp;gt;&lt;/span>${maven.compiler.target}&lt;span class="nt">&amp;lt;/target&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;compilerArgs&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;arg&amp;gt;&lt;/span>-proc:none&lt;span class="nt">&amp;lt;/arg&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;/compilerArgs&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;lt;/configuration&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="nt">&amp;lt;/plugin&amp;gt;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">...
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="注解处理器编写">注解处理器编写
+&lt;/h2>&lt;p>接下来进行代码的编写，既然是插入式注解，首先我们需要定义一个注解：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-java" data-lang="java">&lt;span class="line">&lt;span class="cl">&lt;span class="kn">package&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nn">com.w2tbp.samples.annotation&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="kn">import&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nn">java.lang.annotation.ElementType&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="kn">import&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nn">java.lang.annotation.Retention&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="kn">import&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nn">java.lang.annotation.RetentionPolicy&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="kn">import&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nn">java.lang.annotation.Target&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="nd">@Target&lt;/span>&lt;span class="p">({&lt;/span>&lt;span class="n">ElementType&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">TYPE&lt;/span>&lt;span class="p">})&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="nd">@Retention&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">RetentionPolicy&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">SOURCE&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="kd">public&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nd">@interface&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">MyLog&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>然后编写注解处理器，得继承 AbstractProcessor 类，并重写 process 方法。在其中我们就能够调用 java 修改语法树的一系列 api，对代码进行一顿输出。&lt;/p>
+&lt;p>上一节费劲心思配置编译选项，把 tools.jar 引入，就是为了在编写注解处理器的时候调用这些 api。但关于修改语法树，也就是关于 JCTree 的一些语法，怎么使用，我就不多说了，因为我也不太了解 pwq，只是拿来用。&lt;/p>
+&lt;p>我写的这个注解处理器，是为了让代码生成一段这样的代码：&lt;/p>
+&lt;p>&lt;code>private final static Logger logger = LogManager.getLogger(Test.class);&lt;/code>&lt;/p>
+&lt;p>完整代码如下：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;span class="lnt">27
+&lt;/span>&lt;span class="lnt">28
+&lt;/span>&lt;span class="lnt">29
+&lt;/span>&lt;span class="lnt">30
+&lt;/span>&lt;span class="lnt">31
+&lt;/span>&lt;span class="lnt">32
+&lt;/span>&lt;span class="lnt">33
+&lt;/span>&lt;span class="lnt">34
+&lt;/span>&lt;span class="lnt">35
+&lt;/span>&lt;span class="lnt">36
+&lt;/span>&lt;span class="lnt">37
+&lt;/span>&lt;span class="lnt">38
+&lt;/span>&lt;span class="lnt">39
+&lt;/span>&lt;span class="lnt">40
+&lt;/span>&lt;span class="lnt">41
+&lt;/span>&lt;span class="lnt">42
+&lt;/span>&lt;span class="lnt">43
+&lt;/span>&lt;span class="lnt">44
+&lt;/span>&lt;span class="lnt">45
+&lt;/span>&lt;span class="lnt">46
+&lt;/span>&lt;span class="lnt">47
+&lt;/span>&lt;span class="lnt">48
+&lt;/span>&lt;span class="lnt">49
+&lt;/span>&lt;span class="lnt">50
+&lt;/span>&lt;span class="lnt">51
+&lt;/span>&lt;span class="lnt">52
+&lt;/span>&lt;span class="lnt">53
+&lt;/span>&lt;span class="lnt">54
+&lt;/span>&lt;span class="lnt">55
+&lt;/span>&lt;span class="lnt">56
+&lt;/span>&lt;span class="lnt">57
+&lt;/span>&lt;span class="lnt">58
+&lt;/span>&lt;span class="lnt">59
+&lt;/span>&lt;span class="lnt">60
+&lt;/span>&lt;span class="lnt">61
+&lt;/span>&lt;span class="lnt">62
+&lt;/span>&lt;span class="lnt">63
+&lt;/span>&lt;span class="lnt">64
+&lt;/span>&lt;span class="lnt">65
+&lt;/span>&lt;span class="lnt">66
+&lt;/span>&lt;span class="lnt">67
+&lt;/span>&lt;span class="lnt">68
+&lt;/span>&lt;span class="lnt">69
+&lt;/span>&lt;span class="lnt">70
+&lt;/span>&lt;span class="lnt">71
+&lt;/span>&lt;span class="lnt">72
+&lt;/span>&lt;span class="lnt">73
+&lt;/span>&lt;span class="lnt">74
+&lt;/span>&lt;span class="lnt">75
+&lt;/span>&lt;span class="lnt">76
+&lt;/span>&lt;span class="lnt">77
+&lt;/span>&lt;span class="lnt">78
+&lt;/span>&lt;span class="lnt">79
+&lt;/span>&lt;span class="lnt">80
+&lt;/span>&lt;span class="lnt">81
+&lt;/span>&lt;span class="lnt">82
+&lt;/span>&lt;span class="lnt">83
+&lt;/span>&lt;span class="lnt">84
+&lt;/span>&lt;span class="lnt">85
+&lt;/span>&lt;span class="lnt">86
+&lt;/span>&lt;span class="lnt">87
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-java" data-lang="java">&lt;span class="line">&lt;span class="cl">&lt;span class="kn">package&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nn">com.w2tbp.samples.annotation&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="kn">import&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nn">com.sun.tools.javac.api.JavacTrees&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="kn">import&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nn">com.sun.tools.javac.code.Flags&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="kn">import&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nn">com.sun.tools.javac.processing.JavacProcessingEnvironment&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="kn">import&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nn">com.sun.tools.javac.tree.JCTree&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="kn">import&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nn">com.sun.tools.javac.tree.TreeMaker&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="kn">import&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nn">com.sun.tools.javac.tree.TreeTranslator&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="kn">import&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nn">com.sun.tools.javac.util.*&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="kn">import&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nn">org.apache.logging.log4j.LogManager&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="kn">import&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nn">org.apache.logging.log4j.Logger&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="kn">import&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nn">javax.annotation.processing.*&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="kn">import&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nn">javax.lang.model.SourceVersion&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="kn">import&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nn">javax.lang.model.element.Element&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="kn">import&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nn">javax.lang.model.element.TypeElement&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="kn">import&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nn">java.util.Set&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="nd">@SupportedAnnotationTypes&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34;com.w2tbp.samples.annotation.MyLog&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="kd">public&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kd">class&lt;/span> &lt;span class="nc">MyLogProcessor&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kd">extends&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">AbstractProcessor&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">private&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">JavacTrees&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">javacTrees&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">private&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">TreeMaker&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">treeMaker&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">private&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">Names&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">names&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">private&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kd">static&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kd">final&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">Class&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">MyLog&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">ANNOTATION_TO_PROCESS&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">MyLog&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">class&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">private&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kd">static&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kd">final&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">String&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">LOG_CLASS_TYPE_NAME&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">Logger&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">class&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">getName&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">private&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kd">static&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kd">final&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">String&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">LOG_FACTORY_CLASS_TYPE_NAME&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">LogManager&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">class&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">getName&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nd">@Override&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">public&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kd">synchronized&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kt">void&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nf">init&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">ProcessingEnvironment&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">processingEnv&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">super&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">init&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">processingEnv&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="k">this&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">javacTrees&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">JavacTrees&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">instance&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">processingEnv&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">Context&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">context&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">((&lt;/span>&lt;span class="n">JavacProcessingEnvironment&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">processingEnv&lt;/span>&lt;span class="p">).&lt;/span>&lt;span class="na">getContext&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="k">this&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">treeMaker&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">TreeMaker&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">instance&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">context&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="k">this&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">names&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">Names&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">instance&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">context&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nd">@Override&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">public&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">SourceVersion&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nf">getSupportedSourceVersion&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="k">return&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">SourceVersion&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">latest&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nd">@Override&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">public&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kt">boolean&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nf">process&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Set&lt;/span>&lt;span class="o">&amp;lt;?&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kd">extends&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">TypeElement&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">annotations&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">RoundEnvironment&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">roundEnv&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">JCTree&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">JCExpression&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">varTypeName&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">strToJCExpression&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">LOG_CLASS_TYPE_NAME&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">JCTree&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">JCExpression&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">varFactoryName&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">strToJCExpression&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">LOG_FACTORY_CLASS_TYPE_NAME&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">Name&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">varName&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">names&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">fromString&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34;log&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">Set&lt;/span>&lt;span class="o">&amp;lt;?&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kd">extends&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">Element&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">elements&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">roundEnv&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">getElementsAnnotatedWith&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">ANNOTATION_TO_PROCESS&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="k">for&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Element&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">element&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">:&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">elements&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">String&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">className&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">element&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">getSimpleName&lt;/span>&lt;span class="p">().&lt;/span>&lt;span class="na">toString&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="o">+&lt;/span>&lt;span class="s">&amp;#34;.class&amp;#34;&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">JCTree&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">tree&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">javacTrees&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">getTree&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">element&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">tree&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">accept&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">TreeTranslator&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="nd">@Override&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">public&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kt">void&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nf">visitClassDef&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">JCTree&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">JCClassDecl&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">jcClassDecl&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">JCTree&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">JCVariableDecl&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">variableDecl&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">treeMaker&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">VarDef&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">treeMaker&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">Modifiers&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Flags&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">PRIVATE&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">+&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">Flags&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">STATIC&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">+&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">Flags&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">FINAL&lt;/span>&lt;span class="p">),&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">varName&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">varTypeName&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">treeMaker&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">Apply&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">List&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">nil&lt;/span>&lt;span class="p">(),&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">treeMaker&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">Select&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">varFactoryName&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">names&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">fromString&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34;getLogger&amp;#34;&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">),&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">List&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">of&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">strToJCExpression&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">className&lt;/span>&lt;span class="p">))&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">jcClassDecl&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">defs&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">jcClassDecl&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">defs&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">prepend&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">variableDecl&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">super&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">visitClassDef&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">jcClassDecl&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">});&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="k">return&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kc">true&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">private&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">JCTree&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">JCExpression&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nf">strToJCExpression&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">String&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">components&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">String&lt;/span>&lt;span class="o">[]&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">componentArray&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">components&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">split&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="s">&amp;#34;\\.&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">JCTree&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">JCExpression&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">expr&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">treeMaker&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">Ident&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">names&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">fromString&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">componentArray&lt;/span>&lt;span class="o">[&lt;/span>&lt;span class="n">0&lt;/span>&lt;span class="o">]&lt;/span>&lt;span class="p">));&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="k">for&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="kt">int&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">i&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">1&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">i&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">componentArray&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">length&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">i&lt;/span>&lt;span class="o">++&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">expr&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">treeMaker&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">Select&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">expr&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">names&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">fromString&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">componentArray&lt;/span>&lt;span class="o">[&lt;/span>&lt;span class="n">i&lt;/span>&lt;span class="o">]&lt;/span>&lt;span class="p">));&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="k">return&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">expr&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>这样基本的事情就完事了，还剩下一件事，就是这个插入式注解得通过 SPI 的方式被编译器调用，所以需要配置一下。&lt;/p>
+&lt;p>具体是在 &lt;code>src/main/resources/META-INF/services&lt;/code> 目录下新建一个 &lt;code>javax.annotation.processing.Processor&lt;/code> 文件&lt;/p>
+&lt;p>&lt;img src="https://w2tbp.github.io/blog/blog/p/java-%E6%8F%92%E5%85%A5%E5%BC%8F%E6%B3%A8%E8%A7%A3/assets/pluggable-annotation.png"
+width="269"
+height="63"
+srcset="https://w2tbp.github.io/blog/blog/p/java-%E6%8F%92%E5%85%A5%E5%BC%8F%E6%B3%A8%E8%A7%A3/assets/pluggable-annotation_hu5345047593177176152.png 480w, https://w2tbp.github.io/blog/blog/p/java-%E6%8F%92%E5%85%A5%E5%BC%8F%E6%B3%A8%E8%A7%A3/assets/pluggable-annotation_hu10157319832369540636.png 1024w"
+loading="lazy"
+alt="SPI配置文件"
+class="gallery-image"
+data-flex-grow="426"
+data-flex-basis="1024px"
+>&lt;/p>
+&lt;p>内容为注解处理器的路径：&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-xml" data-lang="xml">&lt;span class="line">&lt;span class="cl">com.w2tbp.samples.annotation.MyLogProcessor
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>除了这种方式，还可以用谷歌的 &lt;code>auto-service&lt;/code> 依赖，然后在注解处理器上直接用注解 &lt;code>@AutoService&lt;/code> 就行了。&lt;/p>
+&lt;p>注解处理就告一段落了，完整代码地址在：&lt;a class="link" href="https://github.com/w2tbp/samples/tree/main/pluggable-annotation" target="_blank" rel="noopener"
+>samples/pluggable-annotation&lt;/a>&lt;/p>
+&lt;h2 id="测试">测试
+&lt;/h2>&lt;p>接下来测试一下。&lt;/p>
+&lt;p>新建一个项目，引入上面项目的依赖，简单写个测试类，编译后发现，我们想要的结果已经出现了：&lt;/p>
+&lt;p>&lt;img src="https://w2tbp.github.io/blog/blog/p/java-%E6%8F%92%E5%85%A5%E5%BC%8F%E6%B3%A8%E8%A7%A3/assets/pluggable-annotation-1.png"
+width="673"
+height="367"
+srcset="https://w2tbp.github.io/blog/blog/p/java-%E6%8F%92%E5%85%A5%E5%BC%8F%E6%B3%A8%E8%A7%A3/assets/pluggable-annotation-1_hu14619434023266083365.png 480w, https://w2tbp.github.io/blog/blog/p/java-%E6%8F%92%E5%85%A5%E5%BC%8F%E6%B3%A8%E8%A7%A3/assets/pluggable-annotation-1_hu1503342278480105052.png 1024w"
+loading="lazy"
+alt=".class文件"
+class="gallery-image"
+data-flex-grow="183"
+data-flex-basis="440px"
+>&lt;/p>
+&lt;p>测试项目代码地址在：&lt;a class="link" href="https://github.com/w2tbp/samples/tree/main/pluggable-annotation-test" target="_blank" rel="noopener"
+>samples/pluggable-annotation-test&lt;/a>&lt;/p>
+&lt;h2 id="idea-插件">idea 插件
+&lt;/h2>&lt;p>现在我们知道可以生成语句，那么在代码中就可以用这个生成的对象了。但我们敲下 log 对象时，却出现了问题：&lt;/p>
+&lt;p>&lt;img src="https://w2tbp.github.io/blog/blog/p/java-%E6%8F%92%E5%85%A5%E5%BC%8F%E6%B3%A8%E8%A7%A3/assets/pluggable-annotation-2.png"
+width="357"
+height="269"
+srcset="https://w2tbp.github.io/blog/blog/p/java-%E6%8F%92%E5%85%A5%E5%BC%8F%E6%B3%A8%E8%A7%A3/assets/pluggable-annotation-2_hu2313483352929294688.png 480w, https://w2tbp.github.io/blog/blog/p/java-%E6%8F%92%E5%85%A5%E5%BC%8F%E6%B3%A8%E8%A7%A3/assets/pluggable-annotation-2_hu2250925709371990693.png 1024w"
+loading="lazy"
+alt="测试类"
+class="gallery-image"
+data-flex-grow="132"
+data-flex-basis="318px"
+>&lt;/p>
+&lt;p>这个对象飘红了，这是正常的，因为现在并没有这个对象。但是在用 lombok 的时候显然没有这个问题，这是为什么呢？因为 lombok 在 idea 中用了插件，一些较旧的 idea 版本会让人自己装，但现在都集成了。&lt;/p>
+&lt;p>于是我们也来开发个自己的插件，当我们安装插件后，会看到和 lombok 一样的效果，log 也不报错了，也有代码提示了：&lt;/p>
+&lt;p>&lt;img src="https://w2tbp.github.io/blog/blog/p/java-%E6%8F%92%E5%85%A5%E5%BC%8F%E6%B3%A8%E8%A7%A3/assets/pluggable-annotation-3.png"
+width="547"
+height="522"
+srcset="https://w2tbp.github.io/blog/blog/p/java-%E6%8F%92%E5%85%A5%E5%BC%8F%E6%B3%A8%E8%A7%A3/assets/pluggable-annotation-3_hu17730672863779636448.png 480w, https://w2tbp.github.io/blog/blog/p/java-%E6%8F%92%E5%85%A5%E5%BC%8F%E6%B3%A8%E8%A7%A3/assets/pluggable-annotation-3_hu7320167634667927701.png 1024w"
+loading="lazy"
+alt="安装插件后"
+class="gallery-image"
+data-flex-grow="104"
+data-flex-basis="251px"
+>&lt;/p>
+&lt;p>关于如何写插件，新建工程，怎么配置，如何实现，说起来也有点冗杂。代码基本上就是从 lombok 插件中 copy 的，ps：看它的那个插件源代码真是一件痛苦的事情。&lt;/p>
+&lt;p>插件的代码地址在：&lt;a class="link" href="https://github.com/w2tbp/samples/tree/main/pluggable-annotation-idea-plugin" target="_blank" rel="noopener"
+>samples/pluggable-annotation-idea-plugin&lt;/a>&lt;/p>
+&lt;p>可以直接下载项目目录下的 &lt;code>pluggable-annotation-idea-plugin-1.0-SNAPSHOT.zip&lt;/code> ，然后在 idea 插件选项中，选择从磁盘中安装，安装此插件。&lt;/p>
+&lt;p>另需注意，IDEA 会有版本兼容问题，我这里使用的 IDEA 版本为 2024.1&lt;/p>
+&lt;h2 id="其他">其他
+&lt;/h2>&lt;h3 id="报错-java-javalangillegalargumentexception">报错 java: java.lang.IllegalArgumentException
+&lt;/h3>&lt;p>路径：Build, Execution, Deployment -&amp;gt; complier -&amp;gt; Shared build process VM options&lt;/p>
+&lt;p>加上该配置 &lt;code>-Djps.track.ap.dependencies=false&lt;/code>&lt;/p>
+&lt;p>&lt;img src="https://w2tbp.github.io/blog/blog/p/java-%E6%8F%92%E5%85%A5%E5%BC%8F%E6%B3%A8%E8%A7%A3/assets/pluggable-annotation-4.png"
+width="779"
+height="560"
+srcset="https://w2tbp.github.io/blog/blog/p/java-%E6%8F%92%E5%85%A5%E5%BC%8F%E6%B3%A8%E8%A7%A3/assets/pluggable-annotation-4_hu6585747816969065319.png 480w, https://w2tbp.github.io/blog/blog/p/java-%E6%8F%92%E5%85%A5%E5%BC%8F%E6%B3%A8%E8%A7%A3/assets/pluggable-annotation-4_hu9435446374601438425.png 1024w"
+loading="lazy"
+alt="虚拟机选项"
+class="gallery-image"
+data-flex-grow="139"
+data-flex-basis="333px"
+>&lt;/p></description></item><item><title>java stream 的一些使用心得</title><link>https://w2tbp.github.io/blog/p/java-stream-%E7%9A%84%E4%B8%80%E4%BA%9B%E4%BD%BF%E7%94%A8%E5%BF%83%E5%BE%97/</link><pubDate>Thu, 27 Jul 2023 20:01:24 +0000</pubDate><guid>https://w2tbp.github.io/blog/p/java-stream-%E7%9A%84%E4%B8%80%E4%BA%9B%E4%BD%BF%E7%94%A8%E5%BF%83%E5%BE%97/</guid><description>&lt;p>java stream 流处理，有点像 Linux 中的管道。&lt;br>
+把一个集合中的元素当做流，java 提供了一些函数去处理，上一个函数的结果输出可以当做下一个函数输入。&lt;/p>
+&lt;h2 id="寻找符合条件的元素">寻找符合条件的元素
+&lt;/h2>&lt;p>使用 filter&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;span class="lnt">6
+&lt;/span>&lt;span class="lnt">7
+&lt;/span>&lt;span class="lnt">8
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-java" data-lang="java">&lt;span class="line">&lt;span class="cl">&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">target1&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">stream&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">filter&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">o&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">uid&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">equals&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">o&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">getId&lt;/span>&lt;span class="p">())).&lt;/span>&lt;span class="na">findAny&lt;/span>&lt;span class="p">().&lt;/span>&lt;span class="na">orElse&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="kc">null&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="n">Optional&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">target2&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">stream&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">filter&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">o&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">uid&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">equals&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">o&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">getId&lt;/span>&lt;span class="p">())).&lt;/span>&lt;span class="na">findAny&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="n">Optional&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">target3&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">stream&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">filter&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">o&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">uid&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">equals&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">o&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">getId&lt;/span>&lt;span class="p">())).&lt;/span>&lt;span class="na">findFirst&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>findAny findFirst 都可以，视场景而定。&lt;br>
+orElse 设定一个默认值。&lt;/p>
+&lt;p>例子&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-java" data-lang="java">&lt;span class="line">&lt;span class="cl">&lt;span class="nd">@Data&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="nd">@AllArgsConstructor&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="kd">public&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kd">class&lt;/span> &lt;span class="nc">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">private&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">Integer&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">id&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">private&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">String&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">name&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">private&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">String&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">country&lt;/span>&lt;span class="p">;&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-java" data-lang="java">&lt;span class="line">&lt;span class="cl">&lt;span class="kd">public&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kd">class&lt;/span> &lt;span class="nc">StreamTest&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">List&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">ArrayList&lt;/span>&lt;span class="o">&amp;lt;&amp;gt;&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">public&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nf">StreamTest&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">coldplay&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">1&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;Coldplay&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;uk&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">oneOkRock&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">2&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;OneOkRock&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;jp&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">queen&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">3&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;Queen&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;uk&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">mayday&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">4&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;Mayday&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;cn&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">radwimps&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">5&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;RADWIMPS&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;jp&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">supercell&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">6&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;Supercell&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;jp&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">addAll&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Arrays&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">asList&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">coldplay&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">oneOkRock&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">queen&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">mayday&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">radwimps&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">supercell&lt;/span>&lt;span class="p">));&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">public&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kd">static&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kt">void&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nf">main&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">String&lt;/span>&lt;span class="o">[]&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">args&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">StreamTest&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">test&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">StreamTest&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">test&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">findOne&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">1&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">private&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kt">void&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nf">findOne&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Integer&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">uid&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">target1&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">stream&lt;/span>&lt;span class="p">().&lt;/span>&lt;span class="na">filter&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">o&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">uid&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">equals&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">o&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">getId&lt;/span>&lt;span class="p">())).&lt;/span>&lt;span class="na">findAny&lt;/span>&lt;span class="p">().&lt;/span>&lt;span class="na">orElse&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="kc">null&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">Optional&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">target2&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">stream&lt;/span>&lt;span class="p">().&lt;/span>&lt;span class="na">filter&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">o&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">uid&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">equals&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">o&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">getId&lt;/span>&lt;span class="p">())).&lt;/span>&lt;span class="na">findAny&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">Optional&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">target3&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">stream&lt;/span>&lt;span class="p">().&lt;/span>&lt;span class="na">filter&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">o&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">uid&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">equals&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">o&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">getId&lt;/span>&lt;span class="p">())).&lt;/span>&lt;span class="na">findFirst&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="根据某个字段去重">根据某个字段去重
+&lt;/h2>&lt;p>如果是一个基础类型的集合，比如 Integer 、String 之类的，直接用 distinct() 方法就好了。但是如果是一个实体类的集合，就需要根据实体类中的某个字段来去重。&lt;br>
+有好几种方式，这里介绍两种。&lt;/p>
+&lt;ol>
+&lt;li>通过 &lt;code>Collectors.collectingAndThen&lt;/code> 的 &lt;code>Collectors.toCollection&lt;/code> ，里面用 &lt;code>TreeSet&lt;/code> 在构造函数中指定字段&lt;/li>
+&lt;/ol>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-java" data-lang="java">&lt;span class="line">&lt;span class="cl">&lt;span class="n">List&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">distinctList&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">stream&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">collect&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Collectors&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">collectingAndThen&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Collectors&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">toCollection&lt;/span>&lt;span class="p">(()&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">TreeSet&lt;/span>&lt;span class="o">&amp;lt;&amp;gt;&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Comparator&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">comparing&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">o&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">o&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">getCountry&lt;/span>&lt;span class="p">()))),&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">ArrayList&lt;/span>&lt;span class="p">::&lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="p">));&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;ol start="2">
+&lt;li>使用 filter + map&lt;/li>
+&lt;/ol>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-java" data-lang="java">&lt;span class="line">&lt;span class="cl">&lt;span class="n">Map&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">Object&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">Boolean&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">map&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">HashMap&lt;/span>&lt;span class="o">&amp;lt;&amp;gt;&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="n">List&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">distinctList&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">stream&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">filter&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">i&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">map&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">putIfAbsent&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">i&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">getCountry&lt;/span>&lt;span class="p">(),&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">Boolean&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">TRUE&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">==&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kc">null&lt;/span>&lt;span class="p">).&lt;/span>&lt;span class="na">collect&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Collectors&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">toList&lt;/span>&lt;span class="p">());&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>来源：&lt;a class="link" href="https://www.cnblogs.com/cdfive2018/p/15064524.html" target="_blank" rel="noopener"
+>List列表运用Java8的stream流按某字段去重 - cdfive - 博客园 (cnblogs.com)&lt;/a>&lt;/p>
+&lt;p>例子&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;span class="lnt">27
+&lt;/span>&lt;span class="lnt">28
+&lt;/span>&lt;span class="lnt">29
+&lt;/span>&lt;span class="lnt">30
+&lt;/span>&lt;span class="lnt">31
+&lt;/span>&lt;span class="lnt">32
+&lt;/span>&lt;span class="lnt">33
+&lt;/span>&lt;span class="lnt">34
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-java" data-lang="java">&lt;span class="line">&lt;span class="cl">&lt;span class="kd">public&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kd">class&lt;/span> &lt;span class="nc">StreamTest&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">List&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">ArrayList&lt;/span>&lt;span class="o">&amp;lt;&amp;gt;&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">public&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nf">StreamTest&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">coldplay&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">1&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;Coldplay&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;uk&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">oneOkRock&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">2&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;OneOkRock&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;jp&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">queen&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">3&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;Queen&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;uk&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">mayday&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">4&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;Mayday&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;cn&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">radwimps&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">5&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;RADWIMPS&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;jp&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">supercell&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">6&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;Supercell&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;jp&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">addAll&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Arrays&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">asList&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">coldplay&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">oneOkRock&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">queen&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">mayday&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">radwimps&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">supercell&lt;/span>&lt;span class="p">));&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">public&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kd">static&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kt">void&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nf">main&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">String&lt;/span>&lt;span class="o">[]&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">args&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">StreamTest&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">test&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">StreamTest&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">test&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">distinct1&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">test&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">distinct2&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">private&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kt">void&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nf">distinct1&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">List&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">distinctList&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">stream&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">collect&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Collectors&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">collectingAndThen&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Collectors&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">toCollection&lt;/span>&lt;span class="p">(()&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">TreeSet&lt;/span>&lt;span class="o">&amp;lt;&amp;gt;&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Comparator&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">comparing&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">o&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">o&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">getCountry&lt;/span>&lt;span class="p">()))),&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">ArrayList&lt;/span>&lt;span class="p">::&lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="p">));&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">System&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">out&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">println&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">distinctList&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">private&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kt">void&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nf">distinct2&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">Map&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">Object&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">Boolean&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">map&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">HashMap&lt;/span>&lt;span class="o">&amp;lt;&amp;gt;&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">List&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">distinctList&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">stream&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">filter&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">i&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">map&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">putIfAbsent&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">i&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">getCountry&lt;/span>&lt;span class="p">(),&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">Boolean&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">TRUE&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">==&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kc">null&lt;/span>&lt;span class="p">).&lt;/span>&lt;span class="na">collect&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Collectors&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">toList&lt;/span>&lt;span class="p">());&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">System&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">out&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">println&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">distinctList&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="排序">排序
+&lt;/h2>&lt;p>可以使用提供的一系列方法，例如 &lt;code>Comparator.comparingInt()&lt;/code> 之类的。&lt;br>
+也可以自定义一个 Comparator&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;span class="lnt">3
+&lt;/span>&lt;span class="lnt">4
+&lt;/span>&lt;span class="lnt">5
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-java" data-lang="java">&lt;span class="line">&lt;span class="cl">&lt;span class="n">Comparator&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">comparator&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">o1&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">o2&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="c1">// 可添加更多的条件 &lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="k">return&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">o1&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">getId&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">o2&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">getId&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="p">};&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">stream&lt;/span>&lt;span class="p">().&lt;/span>&lt;span class="na">sorted&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">comparator&lt;/span>&lt;span class="p">).&lt;/span>&lt;span class="na">collect&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Collectors&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">toList&lt;/span>&lt;span class="p">());&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>&lt;a class="link" href="https://www.cnblogs.com/kuanglongblogs/p/11230250.html" target="_blank" rel="noopener"
+>java8 stream多字段排序 - SugarWater - 博客园 (cnblogs.com)&lt;/a>&lt;/p>
+&lt;p>例子&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;span class="lnt">27
+&lt;/span>&lt;span class="lnt">28
+&lt;/span>&lt;span class="lnt">29
+&lt;/span>&lt;span class="lnt">30
+&lt;/span>&lt;span class="lnt">31
+&lt;/span>&lt;span class="lnt">32
+&lt;/span>&lt;span class="lnt">33
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-java" data-lang="java">&lt;span class="line">&lt;span class="cl">&lt;span class="kd">public&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kd">class&lt;/span> &lt;span class="nc">StreamTest&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">List&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">ArrayList&lt;/span>&lt;span class="o">&amp;lt;&amp;gt;&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">public&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nf">StreamTest&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">coldplay&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">1&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;Coldplay&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;uk&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">oneOkRock&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">2&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;OneOkRock&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;jp&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">queen&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">3&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;Queen&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;uk&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">mayday&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">4&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;Mayday&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;cn&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">radwimps&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">5&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;RADWIMPS&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;jp&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">supercell&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">6&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;Supercell&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;jp&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">addAll&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Arrays&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">asList&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">radwimps&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">mayday&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">coldplay&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">queen&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">supercell&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">oneOkRock&lt;/span>&lt;span class="p">));&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">public&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kd">static&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kt">void&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nf">main&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">String&lt;/span>&lt;span class="o">[]&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">args&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">StreamTest&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">test&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">StreamTest&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">test&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">sort&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">private&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kt">void&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nf">sort&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">System&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">out&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">println&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">Comparator&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">comparator&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">o1&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">o2&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="c1">// 可添加更多的条件 &lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="k">return&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">o1&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">getId&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">o2&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">getId&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">};&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">stream&lt;/span>&lt;span class="p">().&lt;/span>&lt;span class="na">sorted&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">comparator&lt;/span>&lt;span class="p">).&lt;/span>&lt;span class="na">collect&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Collectors&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">toList&lt;/span>&lt;span class="p">());&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">System&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">out&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">println&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">stream&lt;/span>&lt;span class="p">().&lt;/span>&lt;span class="na">sorted&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Comparator&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">comparing&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">::&lt;/span>&lt;span class="n">getCountry&lt;/span>&lt;span class="p">)).&lt;/span>&lt;span class="na">collect&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Collectors&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">toList&lt;/span>&lt;span class="p">());&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">System&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">out&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">println&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="分组">分组
+&lt;/h2>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;span class="lnt">2
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-java" data-lang="java">&lt;span class="line">&lt;span class="cl">&lt;span class="n">Map&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">String&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">List&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="o">&amp;gt;&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">map&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">stream&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">collect&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Collectors&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">groupingBy&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">::&lt;/span>&lt;span class="n">getCountry&lt;/span>&lt;span class="p">));&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>&lt;a class="link" href="https://www.jianshu.com/p/0687e7003eb2" target="_blank" rel="noopener"
+>Java8 Stream之group - 简书 (jianshu.com)&lt;/a>&lt;/p>
+&lt;p>例子&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-java" data-lang="java">&lt;span class="line">&lt;span class="cl">&lt;span class="kd">public&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kd">class&lt;/span> &lt;span class="nc">StreamTest&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">List&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">ArrayList&lt;/span>&lt;span class="o">&amp;lt;&amp;gt;&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">public&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nf">StreamTest&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">coldplay&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">1&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;Coldplay&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;uk&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">oneOkRock&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">2&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;OneOkRock&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;jp&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">queen&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">3&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;Queen&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;uk&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">mayday&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">4&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;Mayday&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;cn&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">radwimps&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">5&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;RADWIMPS&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;jp&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">supercell&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">6&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;Supercell&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;jp&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">addAll&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Arrays&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">asList&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">radwimps&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">mayday&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">coldplay&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">queen&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">supercell&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">oneOkRock&lt;/span>&lt;span class="p">));&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">public&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kd">static&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kt">void&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nf">main&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">String&lt;/span>&lt;span class="o">[]&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">args&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">StreamTest&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">test&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">StreamTest&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">test&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">groupBy&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">private&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kt">void&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nf">groupBy&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">Map&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">String&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">List&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="o">&amp;gt;&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">map&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">stream&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">collect&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Collectors&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">groupingBy&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">::&lt;/span>&lt;span class="n">getCountry&lt;/span>&lt;span class="p">));&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">System&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">out&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">println&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">map&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="截取某个字段">截取某个字段
+&lt;/h2>&lt;p>在只需要实体类的某一个字段时比较好用，可以在后面再加个 distinct() 去重&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt">1
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-java" data-lang="java">&lt;span class="line">&lt;span class="cl">&lt;span class="n">List&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">String&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">mapping&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">stream&lt;/span>&lt;span class="p">().&lt;/span>&lt;span class="na">map&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">::&lt;/span>&lt;span class="n">getCountry&lt;/span>&lt;span class="p">).&lt;/span>&lt;span class="na">collect&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Collectors&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">toList&lt;/span>&lt;span class="p">());&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>例子&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-java" data-lang="java">&lt;span class="line">&lt;span class="cl">&lt;span class="kd">public&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kd">class&lt;/span> &lt;span class="nc">StreamTest&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">List&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">ArrayList&lt;/span>&lt;span class="o">&amp;lt;&amp;gt;&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">public&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nf">StreamTest&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">coldplay&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">1&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;Coldplay&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;uk&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">oneOkRock&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">2&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;OneOkRock&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;jp&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">queen&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">3&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;Queen&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;uk&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">mayday&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">4&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;Mayday&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;cn&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">radwimps&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">5&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;RADWIMPS&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;jp&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">supercell&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">6&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;Supercell&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;jp&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">addAll&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Arrays&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">asList&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">radwimps&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">mayday&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">coldplay&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">queen&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">supercell&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">oneOkRock&lt;/span>&lt;span class="p">));&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">public&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kd">static&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kt">void&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nf">main&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">String&lt;/span>&lt;span class="o">[]&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">args&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">StreamTest&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">test&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">StreamTest&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">test&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">mapping&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">private&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kt">void&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nf">mapping&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">List&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">String&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">mapping&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">stream&lt;/span>&lt;span class="p">().&lt;/span>&lt;span class="na">map&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">::&lt;/span>&lt;span class="n">getCountry&lt;/span>&lt;span class="p">).&lt;/span>&lt;span class="na">collect&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Collectors&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">toList&lt;/span>&lt;span class="p">());&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">System&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">out&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">println&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">mapping&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">List&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">String&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">mapping2&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">stream&lt;/span>&lt;span class="p">().&lt;/span>&lt;span class="na">map&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">::&lt;/span>&lt;span class="n">getCountry&lt;/span>&lt;span class="p">).&lt;/span>&lt;span class="na">distinct&lt;/span>&lt;span class="p">().&lt;/span>&lt;span class="na">collect&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Collectors&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">toList&lt;/span>&lt;span class="p">());&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">System&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">out&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">println&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">mapping2&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;h2 id="完整示例">完整示例
+&lt;/h2>&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;span class="lnt">27
+&lt;/span>&lt;span class="lnt">28
+&lt;/span>&lt;span class="lnt">29
+&lt;/span>&lt;span class="lnt">30
+&lt;/span>&lt;span class="lnt">31
+&lt;/span>&lt;span class="lnt">32
+&lt;/span>&lt;span class="lnt">33
+&lt;/span>&lt;span class="lnt">34
+&lt;/span>&lt;span class="lnt">35
+&lt;/span>&lt;span class="lnt">36
+&lt;/span>&lt;span class="lnt">37
+&lt;/span>&lt;span class="lnt">38
+&lt;/span>&lt;span class="lnt">39
+&lt;/span>&lt;span class="lnt">40
+&lt;/span>&lt;span class="lnt">41
+&lt;/span>&lt;span class="lnt">42
+&lt;/span>&lt;span class="lnt">43
+&lt;/span>&lt;span class="lnt">44
+&lt;/span>&lt;span class="lnt">45
+&lt;/span>&lt;span class="lnt">46
+&lt;/span>&lt;span class="lnt">47
+&lt;/span>&lt;span class="lnt">48
+&lt;/span>&lt;span class="lnt">49
+&lt;/span>&lt;span class="lnt">50
+&lt;/span>&lt;span class="lnt">51
+&lt;/span>&lt;span class="lnt">52
+&lt;/span>&lt;span class="lnt">53
+&lt;/span>&lt;span class="lnt">54
+&lt;/span>&lt;span class="lnt">55
+&lt;/span>&lt;span class="lnt">56
+&lt;/span>&lt;span class="lnt">57
+&lt;/span>&lt;span class="lnt">58
+&lt;/span>&lt;span class="lnt">59
+&lt;/span>&lt;span class="lnt">60
+&lt;/span>&lt;span class="lnt">61
+&lt;/span>&lt;span class="lnt">62
+&lt;/span>&lt;span class="lnt">63
+&lt;/span>&lt;span class="lnt">64
+&lt;/span>&lt;span class="lnt">65
+&lt;/span>&lt;span class="lnt">66
+&lt;/span>&lt;span class="lnt">67
+&lt;/span>&lt;span class="lnt">68
+&lt;/span>&lt;span class="lnt">69
+&lt;/span>&lt;span class="lnt">70
+&lt;/span>&lt;span class="lnt">71
+&lt;/span>&lt;span class="lnt">72
+&lt;/span>&lt;span class="lnt">73
+&lt;/span>&lt;span class="lnt">74
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-java" data-lang="java">&lt;span class="line">&lt;span class="cl">&lt;span class="kd">public&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kd">class&lt;/span> &lt;span class="nc">StreamTest&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">List&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">ArrayList&lt;/span>&lt;span class="o">&amp;lt;&amp;gt;&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">public&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nf">StreamTest&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">coldplay&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">1&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;Coldplay&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;uk&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">oneOkRock&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">2&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;OneOkRock&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;jp&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">queen&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">3&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;Queen&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;uk&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">mayday&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">4&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;Mayday&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;cn&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">radwimps&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">5&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;RADWIMPS&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;jp&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">supercell&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">6&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;Supercell&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="s">&amp;#34;jp&amp;#34;&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">addAll&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Arrays&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">asList&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">radwimps&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">mayday&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">coldplay&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">queen&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">supercell&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">oneOkRock&lt;/span>&lt;span class="p">));&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">public&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kd">static&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kt">void&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nf">main&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">String&lt;/span>&lt;span class="o">[]&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">args&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">StreamTest&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">test&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">StreamTest&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">test&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">findOne&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">1&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">test&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">distinct1&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">test&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">distinct2&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">test&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">sort&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">test&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">groupBy&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">test&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">mapping&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">private&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kt">void&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nf">mapping&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">List&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">String&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">mapping&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">stream&lt;/span>&lt;span class="p">().&lt;/span>&lt;span class="na">map&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">::&lt;/span>&lt;span class="n">getCountry&lt;/span>&lt;span class="p">).&lt;/span>&lt;span class="na">collect&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Collectors&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">toList&lt;/span>&lt;span class="p">());&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">System&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">out&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">println&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">mapping&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">List&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">String&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">mapping2&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">stream&lt;/span>&lt;span class="p">().&lt;/span>&lt;span class="na">map&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">::&lt;/span>&lt;span class="n">getCountry&lt;/span>&lt;span class="p">).&lt;/span>&lt;span class="na">distinct&lt;/span>&lt;span class="p">().&lt;/span>&lt;span class="na">collect&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Collectors&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">toList&lt;/span>&lt;span class="p">());&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">System&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">out&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">println&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">mapping2&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">private&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kt">void&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nf">groupBy&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">Map&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">String&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">List&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="o">&amp;gt;&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">map&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">stream&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">collect&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Collectors&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">groupingBy&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">::&lt;/span>&lt;span class="n">getCountry&lt;/span>&lt;span class="p">));&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">System&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">out&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">println&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">map&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">private&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kt">void&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nf">sort&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">System&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">out&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">println&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">Comparator&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">comparator&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">o1&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">o2&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="c1">// 可添加更多的条件 &lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="k">return&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">o1&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">getId&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">-&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">o2&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">getId&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">};&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">stream&lt;/span>&lt;span class="p">().&lt;/span>&lt;span class="na">sorted&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">comparator&lt;/span>&lt;span class="p">).&lt;/span>&lt;span class="na">collect&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Collectors&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">toList&lt;/span>&lt;span class="p">());&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">System&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">out&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">println&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">stream&lt;/span>&lt;span class="p">().&lt;/span>&lt;span class="na">sorted&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Comparator&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">comparing&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="p">::&lt;/span>&lt;span class="n">getCountry&lt;/span>&lt;span class="p">)).&lt;/span>&lt;span class="na">collect&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Collectors&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">toList&lt;/span>&lt;span class="p">());&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">System&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">out&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">println&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">private&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kt">void&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nf">distinct1&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">List&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">distinctList&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">stream&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">collect&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Collectors&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">collectingAndThen&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Collectors&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">toCollection&lt;/span>&lt;span class="p">(()&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">TreeSet&lt;/span>&lt;span class="o">&amp;lt;&amp;gt;&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Comparator&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">comparing&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">o&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">o&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">getCountry&lt;/span>&lt;span class="p">()))),&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">ArrayList&lt;/span>&lt;span class="p">::&lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="p">));&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">System&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">out&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">println&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">distinctList&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">private&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kt">void&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nf">distinct2&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">Map&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">Object&lt;/span>&lt;span class="p">,&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">Boolean&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">map&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="k">new&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">HashMap&lt;/span>&lt;span class="o">&amp;lt;&amp;gt;&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">List&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">distinctList&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">stream&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">filter&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">i&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">map&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">putIfAbsent&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">i&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">getCountry&lt;/span>&lt;span class="p">(),&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">Boolean&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">TRUE&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">==&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kc">null&lt;/span>&lt;span class="p">).&lt;/span>&lt;span class="na">collect&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Collectors&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">toList&lt;/span>&lt;span class="p">());&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">System&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">out&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">println&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">distinctList&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="kd">private&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="kt">void&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="nf">findOne&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">Integer&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">uid&lt;/span>&lt;span class="p">)&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="p">{&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">target1&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">stream&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">filter&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">o&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">uid&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">equals&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">o&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">getId&lt;/span>&lt;span class="p">())).&lt;/span>&lt;span class="na">findAny&lt;/span>&lt;span class="p">().&lt;/span>&lt;span class="na">orElse&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="kc">null&lt;/span>&lt;span class="p">);&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">Optional&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">target2&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">stream&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">filter&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">o&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">uid&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">equals&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">o&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">getId&lt;/span>&lt;span class="p">())).&lt;/span>&lt;span class="na">findAny&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="n">Optional&lt;/span>&lt;span class="o">&amp;lt;&lt;/span>&lt;span class="n">User&lt;/span>&lt;span class="o">&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">target3&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">=&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">targetList&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">stream&lt;/span>&lt;span class="p">()&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">filter&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">o&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="o">-&amp;gt;&lt;/span>&lt;span class="w"> &lt;/span>&lt;span class="n">uid&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">equals&lt;/span>&lt;span class="p">(&lt;/span>&lt;span class="n">o&lt;/span>&lt;span class="p">.&lt;/span>&lt;span class="na">getId&lt;/span>&lt;span class="p">())).&lt;/span>&lt;span class="na">findFirst&lt;/span>&lt;span class="p">();&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w"> &lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="w">&lt;/span>&lt;span class="p">}&lt;/span>&lt;span class="w">
+&lt;/span>&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>用这个东西得发挥想象力，然后有时候会发现&amp;hellip;&lt;/p>
+&lt;p>for 其实挺好用的。&lt;/p></description></item></channel></rss>

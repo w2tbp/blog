@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>Uniapp on w2tbp</title><link>https://w2tbp.github.io/blog/tags/uniapp/</link><description>Recent content in Uniapp on w2tbp</description><generator>Hugo -- gohugo.io</generator><language>zh-cn</language><lastBuildDate>Thu, 30 Jun 2022 15:39:16 +0000</lastBuildDate><atom:link href="https://w2tbp.github.io/blog/tags/uniapp/index.xml" rel="self" type="application/rss+xml"/><item><title>在 uniapp 中使用 fontawesome</title><link>https://w2tbp.github.io/blog/p/%E5%9C%A8-uniapp-%E4%B8%AD%E4%BD%BF%E7%94%A8-fontawesome/</link><pubDate>Thu, 30 Jun 2022 15:39:16 +0000</pubDate><guid>https://w2tbp.github.io/blog/p/%E5%9C%A8-uniapp-%E4%B8%AD%E4%BD%BF%E7%94%A8-fontawesome/</guid><description>&lt;h1 id="在导航栏中使用">在导航栏中使用
+&lt;/h1>&lt;p>uniapp 的导航栏，如果想要添加图标就得在 page.json 页面配置，因为自定义 button 只支持字体图标，所以想到了 fontawesome&lt;/p>
+&lt;p>&lt;a class="link" href="https://uniapp.dcloud.net.cn/collocation/pages.html#style" target="_blank" rel="noopener"
+>page.json - style&lt;/a>&lt;/p>
+&lt;p>首先下载 fontawesome ，去&lt;a class="link" href="http://www.fontawesome.com.cn/" target="_blank" rel="noopener"
+>官网&lt;/a>&lt;/p>
+&lt;p>点击下载旧版 v4.7 ，解压后找到 &lt;code>/fonts/fontawesome-webfont.ttf&lt;/code> ，复制粘贴到 uniapp 项目中，我这里放在了 &lt;code>static&lt;/code> 目录下&lt;/p>
+&lt;p>&lt;img src="https://w2tbp.github.io/blog/blog/blog/content/post/uniapp-use-fontawesome/image-20220630155122450.png"
+loading="lazy"
+alt="image-20220630155122450"
+>&lt;/p>
+&lt;p>&lt;img src="https://w2tbp.github.io/blog/blog/blog/content/post/uniapp-use-fontawesome/image-20220630160305903.png"
+loading="lazy"
+alt="image-20220630160305903"
+>&lt;/p>
+&lt;p>因为 fontSrc 中只能填写 unicode ，所以需要填入图标的 unicode，这个可以在 &lt;a class="link" href="http://www.fontawesome.com.cn/cheatsheet/" target="_blank" rel="noopener"
+>cheatsheet&lt;/a> 找到&lt;/p>
+&lt;p>&lt;img src="https://w2tbp.github.io/blog/blog/blog/content/post/uniapp-use-fontawesome/image-20220630155731703.png"
+loading="lazy"
+alt="image-20220630155731703"
+>&lt;/p>
+&lt;p>例如这个右箭头，就是 &lt;code>f061&lt;/code>&lt;/p>
+&lt;p>page.json 代码如下&lt;/p>
+&lt;div class="highlight">&lt;div class="chroma">
+&lt;table class="lntable">&lt;tr>&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code>&lt;span class="lnt"> 1
+&lt;/span>&lt;span class="lnt"> 2
+&lt;/span>&lt;span class="lnt"> 3
+&lt;/span>&lt;span class="lnt"> 4
+&lt;/span>&lt;span class="lnt"> 5
+&lt;/span>&lt;span class="lnt"> 6
+&lt;/span>&lt;span class="lnt"> 7
+&lt;/span>&lt;span class="lnt"> 8
+&lt;/span>&lt;span class="lnt"> 9
+&lt;/span>&lt;span class="lnt">10
+&lt;/span>&lt;span class="lnt">11
+&lt;/span>&lt;span class="lnt">12
+&lt;/span>&lt;span class="lnt">13
+&lt;/span>&lt;span class="lnt">14
+&lt;/span>&lt;span class="lnt">15
+&lt;/span>&lt;span class="lnt">16
+&lt;/span>&lt;span class="lnt">17
+&lt;/span>&lt;span class="lnt">18
+&lt;/span>&lt;span class="lnt">19
+&lt;/span>&lt;span class="lnt">20
+&lt;/span>&lt;span class="lnt">21
+&lt;/span>&lt;span class="lnt">22
+&lt;/span>&lt;span class="lnt">23
+&lt;/span>&lt;span class="lnt">24
+&lt;/span>&lt;span class="lnt">25
+&lt;/span>&lt;span class="lnt">26
+&lt;/span>&lt;/code>&lt;/pre>&lt;/td>
+&lt;td class="lntd">
+&lt;pre tabindex="0" class="chroma">&lt;code class="language-json" data-lang="json">&lt;span class="line">&lt;span class="cl">&lt;span class="err">...&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2">&amp;#34;path&amp;#34;&lt;/span>&lt;span class="err">:&lt;/span> &lt;span class="s2">&amp;#34;pages/index/index&amp;#34;&lt;/span>&lt;span class="err">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="s2">&amp;#34;style&amp;#34;&lt;/span>&lt;span class="err">:&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;navigationBarTitleText&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="s2">&amp;#34;uni-app&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;app-plus&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;bounce&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="s2">&amp;#34;vertical&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;titleNView&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;titleAlign&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="s2">&amp;#34;left&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;subtitleText&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="s2">&amp;#34;uni-app.com&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;buttons&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="p">[&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;text&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="s2">&amp;#34;\uf061&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;fontSrc&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="s2">&amp;#34;/static/fontawesome-webfont.ttf&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;fontSize&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="s2">&amp;#34;22px&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;color&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="s2">&amp;#34;#FFFFFF&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">},&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">{&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;text&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="s2">&amp;#34;\uf062&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;fontSrc&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="s2">&amp;#34;/static/fontawesome-webfont.ttf&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;fontSize&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="s2">&amp;#34;22px&amp;#34;&lt;/span>&lt;span class="p">,&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="nt">&amp;#34;color&amp;#34;&lt;/span>&lt;span class="p">:&lt;/span> &lt;span class="s2">&amp;#34;#FFFFFF&amp;#34;&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}]&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl"> &lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="p">}&lt;/span>
+&lt;/span>&lt;/span>&lt;span class="line">&lt;span class="cl">&lt;span class="err">...&lt;/span>
+&lt;/span>&lt;/span>&lt;/code>&lt;/pre>&lt;/td>&lt;/tr>&lt;/table>
+&lt;/div>
+&lt;/div>&lt;p>最终效果&lt;/p>
+&lt;p>&lt;img src="https://w2tbp.github.io/blog/blog/blog/content/post/uniapp-use-fontawesome/image-20220630155619399.png"
+loading="lazy"
+alt="image-20220630155619399"
+>&lt;/p>
+&lt;p>参考链接&lt;/p>
+&lt;p>&lt;a class="link" href="https://www.cnblogs.com/xzp-blog/p/13809218.html" target="_blank" rel="noopener"
+>Font Awesome字体图标如何使用？&lt;/a>&lt;/p>
+&lt;h1 id="在页面上使用">在页面上使用
+&lt;/h1>&lt;p>我们需要两个东西，一个是 ttf 文件，一个是 css 文件&lt;/p>
+&lt;p>ttf 跟上面的一样，是 &lt;code>/fonts/fontawesome-webfont.ttf&lt;/code>&lt;/p>
+&lt;p>css 是 &lt;code>/css/font-awesome.min.css&lt;/code>&lt;/p>
+&lt;p>将这两个文件复制到项目中，我这里还是放在 static 目录下&lt;/p>
+&lt;p>好像在微信小程序中使用还得将 ttf 文件转成 Base64 ，我这边只需要关心 app ，好像也不用转。&lt;/p>
+&lt;p>链接 &lt;a class="link" href="https://blog.csdn.net/DemonDay01/article/details/118573876" target="_blank" rel="noopener"
+>uniapp引入 FontAwesome&lt;/a> 中有转 Base64 的方法&lt;/p>
+&lt;p>接下来需要修改 css 文件，替换 @font-face 里面的内容，修改为 ttf 文件在项目中的路径。&lt;/p>
+&lt;p>&lt;img src="https://w2tbp.github.io/blog/blog/blog/content/post/uniapp-use-fontawesome/image-20220703150655899.png"
+loading="lazy"
+alt="image-20220703150655899"
+>&lt;/p>
+&lt;p>然后在 App.vue 文件中全局引入 css 文件&lt;/p>
+&lt;p>&lt;img src="https://w2tbp.github.io/blog/blog/blog/content/post/uniapp-use-fontawesome/image-20220703150920171.png"
+loading="lazy"
+alt="image-20220703150920171"
+>&lt;/p>
+&lt;p>然后就可以使用了&lt;/p>
+&lt;p>&lt;img src="https://w2tbp.github.io/blog/blog/blog/content/post/uniapp-use-fontawesome/image-20220703151110273.png"
+loading="lazy"
+alt="image-20220703151110273"
+>&lt;/p>
+&lt;p>参考链接&lt;/p>
+&lt;p>&lt;a class="link" href="https://blog.csdn.net/DemonDay01/article/details/118573876" target="_blank" rel="noopener"
+>uniapp引入 FontAwesome&lt;/a>&lt;/p></description></item></channel></rss>
